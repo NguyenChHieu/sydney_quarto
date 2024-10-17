@@ -33,8 +33,49 @@ library(equatiomatic)
 library(dplyr)
 library(caret)
 library(boot)
+library(kableExtra)
 rm(list=ls())
 ```
+
+## Problem Statement
+
+```{r, echo = FALSE}
+data <- read.table("housing-prices-ge19.txt", header = TRUE, sep = "\t", stringsAsFactors = FALSE)
+```
+
+-   Predicting house prices based on various property-related features is a 
+critical challenge in real estate, affecting buyers, sellers, and investors alike.
+-   The dataset represents property features and corresponding house prices in 
+[Saratoga County, New York (2006)](https://dasl.datadescription.com/datafile/housing-prices-ge19).
+-   Goal : To predict how much a house will cost based on its characteristics.
+-   Key dependent variable : Price (a variable to measure house prices)
+
+## EDA {.smaller}
+
+::: columns
+::: {.column width="50%"}
+```{r, fig.align="center", echo = FALSE}
+plot(data$Lot.Size, data$Price, main = "Price vs Lot Size", 
+     xlab = "Lot Size", ylab = "Price", 
+     col = "black",                      
+     bg = adjustcolor("#E6E6FA", alpha.f = 0.5), 
+     pch = 21,                          
+     cex = 1.7)                          
+grid()
+```
+
+-   Most houses have small lot sizes (0 to 1.5) with prices ranging up to 600,000. Larger lot sizes are less common, and the relationship between lot size and price is weak, as prices vary widely even for similar lot sizes.
+:::
+
+::: {.column width="50%"}
+```{r, fig.align="center", echo = FALSE}
+boxplot(data$Price ~ data$Waterfront, main = "Price vs Waterfront", xlab = "Waterfront", ylab = "Price", col = "#D8BFD8", outcol = "#9F2B68", cex = 1.2)
+grid()
+```
+
+-   Waterfront properties (1) have higher median prices (\~500,000) with more variability compared to non-waterfront properties (0) have lower median prices (\~250,000) but many high-priced outliers.
+:::
+:::
 
 ## Preprocessing Data
 
@@ -119,28 +160,70 @@ bic_back <- BIC(step.back.bic)
 bic_fwd <- BIC(step.fwd.bic)
 
 sjPlot::tab_model(step.back.bic, step.fwd.bic, show.ci = FALSE,
-                  CSS = list(css.table = "font-size: 55%;"),
+                  CSS = list(css.table = "font-size: 45%;"),
                   dv.labels = c("Backward model (BIC)","Forward model (BIC)"))
 ```
 
-```{r, echo = FALSE}
-library(kableExtra)
+```{r, echo = FALSE, fig.align="center"}
 
 bic_df <- data.frame(
   Model = c("Backward Model (BIC)", "Forward Model (BIC)"),
   BIC_Value = c(bic_back, bic_fwd)
 )
 
-# Display the data frame using kableExtra
 bic_df %>%
   kable("html", digits = 3, col.names = c("Model Type", "BIC Value")) %>%
-  kable_styling(full_width = F, bootstrap_options = c("striped", "hover", "condensed"))
-
+  kable_styling(full_width = F, bootstrap_options = c("striped", "hover", "condensed")) 
 ```
 
 :::
 :::
 
+## Model selection {.smaller}
+
+::: columns
+::: {.column width="50%"}
+- AIC Backward/Forward Selection
+```{r, echo = FALSE}
+step.back.aic = step(model, direction = "backward", trace = FALSE)
+step.fwd.aic = step(model2, scope = list(lower = model2, upper = model), direction = "forward", trace=FALSE)
+sjPlot::tab_model(step.fwd.aic, step.back.aic, show.ci = FALSE, show.aic = TRUE,
+                  CSS = list(css.table = "font-size: 45%;"),
+                  dv.labels = c("Forward model (AIC)", "Backward model (AIC)"))
+```
+:::
+
+::: {.column width="50%"}
+- BIC Backward/Forward Selection
+```{r, echo = FALSE}
+step.back.bic <- step(model, direction = "backward", trace = FALSE, 
+                      k = log(nrow(cleaned_data)))
+step.fwd.bic <- step(model2, scope = list(lower = model2, upper = model), 
+                     direction = "forward", trace=FALSE, 
+                     k = log(nrow(cleaned_data)))
+
+bic_back <- BIC(step.back.bic)
+bic_fwd <- BIC(step.fwd.bic)
+
+sjPlot::tab_model(step.back.bic, step.fwd.bic, show.ci = FALSE,
+                  CSS = list(css.table = "font-size: 45%;"),
+                  dv.labels = c("Backward model (BIC)","Forward model (BIC)"))
+```
+
+```{r, echo = FALSE, fig.height= 1, fig.width= 3}
+
+bic_df <- data.frame(
+  Model = c("Backward Model (BIC)", "Forward Model (BIC)"),
+  BIC_Value = c(bic_back, bic_fwd)
+)
+
+bic_df %>%
+  kable("html", digits = 3, col.names = c("Model Type", "BIC Value")) %>%
+  kable_styling(full_width = F, bootstrap_options = c("striped", "hover", "condensed")) 
+```
+
+:::
+:::
 
 ## Quarto
 
