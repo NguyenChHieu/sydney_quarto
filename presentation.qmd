@@ -1,20 +1,17 @@
 ---
-title: "A Quarto reveal.js theme"
-author: "Garth Tarr"
-institute: "The University of Sydney"
+title: "New York Housing Prices Model"
+subtitle: "Group L11G04"
+author: "Hanni Fairuz, Richard Eng, Henry Nguyen, Shilei Sun and Zhaofu Sun"
 format:
   revealjs:
      # can set self-contained to false if not uploading to Canvas
      # true makes the HTML files pretty big
     self-contained: true
     fig-format: retina
-    toc: true
-    toc-depth: 1
-    toc-title: "In this lecture"
     theme: [default, "sydney.scss"]
     code-line-numbers: false
     slide-number: c
-    scrollable: false
+    scrollable: true
     pdf-max-pages-per-slide: 1
     history: false # don't add each slide to browser history
 bibliography: pres_bib.bib
@@ -23,11 +20,127 @@ execute:
   echo: true
 ---
 
-```{r, echo = FALSE}
-library(tidyverse)
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
 ```
 
-# First section
+```{r, echo = FALSE}
+library(leaps)
+library(lmSubsets)
+library(ggfortify)
+library(sjPlot)
+library(equatiomatic)
+library(dplyr)
+library(caret)
+library(boot)
+rm(list=ls())
+```
+
+## Preprocessing Data
+
+```{r, echo = FALSE}
+x = readxl::read_excel(paste(getwd(), "housing_prices.xlsx", sep = "/"))
+```
+
+```{r, echo = FALSE}
+cleaned_data <- x %>%
+  select(-Test)
+cleaned_data <- cleaned_data %>%
+  filter(!(Heat.Type == "None" | 
+           Fuel.Type == "Unknown/Other" | 
+           Lot.Size == 0 | 
+           Sewer.Type == "None/Unknown"))
+```
+
+-   **Load Data**: Import the housing_prices.xlsx file into the variable x.
+
+::: callout-important
+### Cleaning data
+-   **Remove Column**: The Test column is removed.
+-   **Filter Data**: Rows with invalid values for Heat.Type, Fuel.Type, Lot.Size, and Sewer.Type are filtered out (30 units removed).
+:::
+
+-   **Build Models**:
+    -   **model**: A Linear regression model is created using all features to predict house prices.
+    -   **model2**: Baseline linear regression model with only an intercept (no predictors), for comparison purposes.
+
+## Checking assumption {.smaller}
+
+```{r, echo = FALSE}
+model = lm(Price ~ ., data = cleaned_data)
+model2 = lm(Price ~ 1, data = cleaned_data)
+```
+
+
+::: columns
+::: {.column width="50%"}
+```{r, echo = FALSE}
+par(mfrow = c(1, 1))
+plot(model, which = 1)
+```
+:::
+
+::: {.column width="50%"}
+```{r, echo = FALSE}
+plot(model, which = 2)
+par(mfrow = c(1, 1))
+```
+
+- Normality violation
+:::
+:::
+
+
+
+## Model selection {.smaller}
+
+::: columns
+::: {.column width="50%"}
+- AIC Backward/Forward Selection
+```{r, echo = FALSE}
+step.back.aic = step(model, direction = "backward", trace = FALSE)
+step.fwd.aic = step(model2, scope = list(lower = model2, upper = model), direction = "forward", trace=FALSE)
+sjPlot::tab_model(step.fwd.aic, step.back.aic, show.ci = FALSE, show.aic = TRUE,
+                  CSS = list(css.table = "font-size: 45%;"),
+                  dv.labels = c("Forward model (AIC)", "Backward model (AIC)"))
+```
+:::
+
+::: {.column width="50%"}
+- BIC Backward/Forward Selection
+```{r, echo = FALSE}
+step.back.bic <- step(model, direction = "backward", trace = FALSE, 
+                      k = log(nrow(cleaned_data)))
+step.fwd.bic <- step(model2, scope = list(lower = model2, upper = model), 
+                     direction = "forward", trace=FALSE, 
+                     k = log(nrow(cleaned_data)))
+
+bic_back <- BIC(step.back.bic)
+bic_fwd <- BIC(step.fwd.bic)
+
+sjPlot::tab_model(step.back.bic, step.fwd.bic, show.ci = FALSE,
+                  CSS = list(css.table = "font-size: 55%;"),
+                  dv.labels = c("Backward model (BIC)","Forward model (BIC)"))
+```
+
+```{r, echo = FALSE}
+library(kableExtra)
+
+bic_df <- data.frame(
+  Model = c("Backward Model (BIC)", "Forward Model (BIC)"),
+  BIC_Value = c(bic_back, bic_fwd)
+)
+
+# Display the data frame using kableExtra
+bic_df %>%
+  kable("html", digits = 3, col.names = c("Model Type", "BIC Value")) %>%
+  kable_styling(full_width = F, bootstrap_options = c("striped", "hover", "condensed"))
+
+```
+
+:::
+:::
+
 
 ## Quarto
 
